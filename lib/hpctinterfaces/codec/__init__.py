@@ -10,6 +10,7 @@ must passgit the test of ```value == decode(encode(value))```.
 """
 
 
+import base64
 import json
 import logging
 from typing import Any
@@ -123,10 +124,10 @@ class Blob(Codec):
     types = [bytes]
 
     def _decode(self, value: str) -> bytes:
-        return value.encode("utf-8")
+        return base64.b85decode(value.encode("utf-8"))
 
     def _encode(self, value: bytes) -> str:
-        return value.decode("utf-8")
+        return base64.b85encode(value).decode("utf-8")
 
     def decode(self, value: str) -> bytes:
         return super().decode(value)
