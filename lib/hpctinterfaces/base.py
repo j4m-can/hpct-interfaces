@@ -122,8 +122,7 @@ class Interface:
         return issubclass(obj, self._basecls)
 
     def _get(self, key, default=None):
-        iface = self if self._baseiface == None else self._baseiface
-        return iface._store_get(key, default)
+        return self._baseiface._store_get(self.get_fqkey(key), default)
 
     def _get_keys(self, iface, fq=False, depth=0):
         """Collect keys from an interface.
@@ -161,41 +160,37 @@ class Interface:
     def _set(self, key, value):
         """Accessor for the interface store."""
 
-        iface = self if self._baseiface == None else self._baseiface
-        iface._store_set(key, value)
+        self._baseiface._store_set(self.get_fqkey(key), value)
 
-    def _set_base(self, baseiface=None):
+    def _set_base(self, baseiface):
         """Set baseiface for all subinterfaces."""
 
-        self._baseiface = baseiface or self
+        self._baseiface = baseiface
         prefix = "" if not self._prefix else f"{self._prefix}."
 
         for k in dir(self):
             iface = getattr(self, k)
-            if isinstance(iface, Interface):
-                if iface not in [self, self._baseiface]:
-                    iface._prefix = f"{prefix}{k}"
-                    print("setting prefix ({iface._prefix}) for iface ({iface})")
-                    iface._set_base(self._baseiface)
+            if isinstance(iface, Interface) and iface != baseiface:
+                iface._prefix = f"{prefix}{k}"
+                iface._set_base(baseiface)
 
-    def _store_clear(self, key):
-        keys = [key] if key != None else self.get_keys()
-        for key in keys:
-            del self._store[self.get_fqkey(key)]
+    def _store_clear(self, fqkey):
+        """Delete item by fqkey."""
 
-    def _store_get(self, key, default=None):
+        del self._store[fqkey]
+
+    def _store_get(self, fqkey, default=None):
         """Accessor for the interface store."""
 
-        return self._store.get(self.get_fqkey(key), default)
+        return self._store.get(fqkey, default)
 
-    def _store_set(self, key, value):
-        self._store[self.get_fqkey(key)] = value
+    def _store_set(self, fqkey, value):
+        self._store[fqkey] = value
 
     def clear(self, key=None):
         """Clear one or all interface keys from storage."""
 
-        iface = self if self._baseiface == None else self._baseiface
-        iface.__clear(key)
+        self._baseiface._store_clear(self.get_fqkey(key))
 
     def get_doc(self, show_values=False):
         """Return json object about interface."""
@@ -263,16 +258,23 @@ class Interface:
         return False
 
     def mount(self, key, subiface, force=False):
-        """Dynamically mount/attach a sub-interface at an anchor.
+        """Dynamically mount/attach a sub-interface at an anchor,
+        relative to this interface (subinterfaces hang off of
+        interfaces not the store).
 
         Note: Added as an instance member *not* a class member.
 
-        Q. Should this be added as a class member?"""
+        Q. Should this be added as a class member?
+        A. Only if it should be inherited by all instances.
+        AA. No, because it is meant to be instance-specific."""
 
         if not hasattr(self, key) or force:
             if not isinstance(subiface, (Interface,)):
                 raise Exception("interface must be a Interface")
-            self._patch_subinterface(key, subiface)
+
+            prefix = "" if not self._prefix else f"{self._prefix}."
+            subiface._prefix = f"{prefix}{key}"
+            subiface._set_base(self._baseiface)
             setattr(self, key, subiface)
 
     def print_doc(self, indent=2):
@@ -299,7 +301,7 @@ class BaseInterface(Interface):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self._set_base()
+        self._set_base(self)
 
 
 class SuperInterface:

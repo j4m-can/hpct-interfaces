@@ -62,37 +62,37 @@ class BucketInterface(BaseInterface):
 
         super().__init__(*args, **kwargs)
 
-    def _store_clear(self, key):
+    def _store_clear(self, fqkey):
         """Clear/delete key from storage (bucket).
 
         According to `RelationDataContent.__delitem__()`.
         """
 
-        self._set(self.get_fqkey(key), "")
+        self._store_set(fqkey, "")
 
-    def _store_get(self, key: str, default=None):
+    def _store_get(self, fqkey: str, default=None):
         """Accessor (for raw data) to the relation store."""
 
-        key = self.get_fqkey(key.replace("_", "-"))
+        fqkey = fqkey.replace("_", "-")
 
         bucketkey = self._bucketkey
         relation = self.get_relation()
 
         if relation:
-            value = relation.data[bucketkey].get(key, NoValue)
+            value = relation.data[bucketkey].get(fqkey, NoValue)
             if value == NoValue:
                 value = default
             return value
 
-    def _store_set(self, key: str, value: Any):
+    def _store_set(self, fqkey: str, value: Any):
         """Accessor (for raw data) to the relation store."""
 
-        key = self.get_fqkey(key.replace("_", "-"))
+        fqkey = fqkey.replace("_", "-")
 
         bucketkey = self._bucketkey
 
         for relation in self.get_relations():
-            relation.data[bucketkey].update({key: value})
+            relation.data[bucketkey].update({fqkey: value})
 
     def get_relation(self, relation_id=None):
         """Return relation associated with registered relation name."""
