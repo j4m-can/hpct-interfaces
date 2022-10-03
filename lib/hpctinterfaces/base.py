@@ -121,8 +121,26 @@ class Interface:
             return False
         return issubclass(obj, self._basecls)
 
+    def __delitem__(self, key):
+        v = getattr(self, key)
+        if isinstance(v, Interface):
+            # TODO: remove if dynamic, zero/clear is not
+            pass
+        else:
+            self.clear(key)
+
+    def __getitem__(self, key):
+        return self._get(key)
+
+    def __setitem__(self, key, value):
+        self._set(key, value)
+
     def _get(self, key, default=None):
-        return self._baseiface._store_get(self.get_fqkey(key), default)
+        v = self._safe_getattr(key)
+        if isinstance(v, Interface):
+            return v
+        else:
+            return self._baseiface._store.get(self.get_fqkey(key), default)
 
     def _get_keys(self, iface, fq=False, depth=0):
         """Collect keys from an interface.
@@ -157,10 +175,26 @@ class Interface:
                     keys.append(key)
         return keys
 
+    def _safe_getattr(self, k):
+        try:
+            if hasattr(self.__class__, k):
+                v = getattr(self.__class__, k)
+            else:
+                v = getattr(self, k)
+        except:
+            v = NoValue
+        return v
+
     def _set(self, key, value):
         """Accessor for the interface store."""
 
-        self._baseiface._store_set(self.get_fqkey(key), value)
+        # TODO: what if key refers to Interface?
+        # * mount over? what happens to the underlying values?
+        # * what happens if anchor is a class Interface?
+        # TODO: what if key refers to nothing in class/object?
+        # * mount? if so, then what happens with the new values?
+
+        self._baseiface._store[self.get_fqkey(key)] = value
 
     def _set_base(self, baseiface):
         """Set baseiface for all subinterfaces."""
@@ -169,28 +203,15 @@ class Interface:
         prefix = "" if not self._prefix else f"{self._prefix}."
 
         for k in dir(self):
-            iface = getattr(self, k)
+            iface = self._safe_getattr(k)
             if isinstance(iface, Interface) and iface != baseiface:
                 iface._prefix = f"{prefix}{k}"
                 iface._set_base(baseiface)
 
-    def _store_clear(self, fqkey):
-        """Delete item by fqkey."""
-
-        del self._store[fqkey]
-
-    def _store_get(self, fqkey, default=None):
-        """Accessor for the interface store."""
-
-        return self._store.get(fqkey, default)
-
-    def _store_set(self, fqkey, value):
-        self._store[fqkey] = value
-
     def clear(self, key=None):
         """Clear one or all interface keys from storage."""
 
-        self._baseiface._store_clear(self.get_fqkey(key))
+        del self._baseiface._store[self.get_fqkey(key)]
 
     def get_doc(self, show_values=False):
         """Return json object about interface."""
@@ -207,7 +228,10 @@ class Interface:
 
             for k in self.get_keys():
                 # TODO: call Value.get_doc()
-                v = getattr(self.__class__, k)
+                if hasattr(self.__class__, k):
+                    v = getattr(self.__class__, k)
+                else:
+                    v = getattr(self, k)
 
                 if isinstance(v, Interface):
                     values[k] = v.get_doc()
@@ -277,21 +301,19 @@ class Interface:
             subiface._set_base(self._baseiface)
             setattr(self, key, subiface)
 
+            # TODO: what about the values, if any, in the mounted Interface?
+            # * should it be mounted as if empty?
+
     def print_doc(self, indent=2):
         """Basic pretty print of object document."""
 
         json.dumps(self.get_doc(), indent)
 
-    def set_item(self, key, value):
-        """Update a single item by key."""
-
-        setattr(self, key, value)
-
     def update(self, d):
         """Update multiple items from a dict."""
 
         for k, v in d.items():
-            self.set_item(k, v)
+            self._set(k, v)
 
 
 class BaseInterface(Interface):

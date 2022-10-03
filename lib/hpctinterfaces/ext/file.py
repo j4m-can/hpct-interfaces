@@ -18,6 +18,7 @@ To use:
         iface.save(iface.path)
 """
 
+import hashlib
 import os
 import pathlib
 import secrets
@@ -33,21 +34,27 @@ class FileDataInterface(Interface):
     data = Blob()
     gid = Integer()
     group = String()
+    md5sum = String()
     mode = Integer()
     name = String()
     nonce = String()
     owner = String()
     path = String()
+    size = Integer()
     uid = Integer()
 
-    def load(self, path):
-        """Load file contents and metadata."""
+    def load(self, path, checksum=False):
+        """Load file contents and metadata. Optionally, add md5 checksum."""
 
         p = pathlib.Path(path)
         if not p.exists():
             raise Exception("path does not exist")
 
-        self.data = p.read_bytes()
+        self.data = data = p.read_bytes()
+        if checksum:
+            self.md5sum = hashlib.md5(data).hexdigest()
+        self.size = len(data)
+
         self.path = str(p.resolve())
         self.name = p.name
         self.owner = p.owner()

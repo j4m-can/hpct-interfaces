@@ -30,6 +30,8 @@ OTHER_ROLE = {
 # base classes
 #
 
+from .store import BucketStore
+
 
 class MockRelation:
     def __init__(self):
@@ -40,6 +42,22 @@ class MockRelation:
 
 
 class BucketInterface(BaseInterface):
+    """Interface for relation bucket storage."""
+
+    def __init__(
+        self,
+        charm,
+        relname: str,
+        bucketkey: str,
+        relation_id: Union[int, None] = None,
+        *args,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self._store = BucketStore(charm, relname, bucketkey, relation_id)
+
+
+class xBucketInterface(BaseInterface):
     """Interface for relation bucket storage."""
 
     def __init__(
