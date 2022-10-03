@@ -31,10 +31,10 @@ class FileDataInterface(Interface):
     """Holds the contents and metadata for a file."""
 
     comment = String("")
+    checksum = String()
     data = Blob()
     gid = Integer()
     group = String()
-    md5sum = String()
     mode = Integer()
     name = String()
     nonce = String()
@@ -44,7 +44,7 @@ class FileDataInterface(Interface):
     uid = Integer()
 
     def load(self, path, checksum=False):
-        """Load file contents and metadata. Optionally, add md5 checksum."""
+        """Load file contents and metadata. Optionally, add sha224 checksum."""
 
         p = pathlib.Path(path)
         if not p.exists():
@@ -52,7 +52,7 @@ class FileDataInterface(Interface):
 
         self.data = data = p.read_bytes()
         if checksum:
-            self.md5sum = hashlib.md5(data).hexdigest()
+            self.checksum = hashlib.sha224(data).hexdigest()
         self.size = len(data)
 
         self.path = str(p.resolve())
