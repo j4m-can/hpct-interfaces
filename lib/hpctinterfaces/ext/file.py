@@ -40,6 +40,7 @@ class FileDataInterface(Interface):
     nonce = String()
     owner = String()
     path = String()
+    size = Integer()
     uid = Integer()
 
     def load(self, path, checksum=False):
@@ -52,6 +53,7 @@ class FileDataInterface(Interface):
         self.data = data = p.read_bytes()
         if checksum:
             self.md5sum = hashlib.md5(data).hexdigest()
+        self.size = len(data)
 
         self.path = str(p.resolve())
         self.name = p.name
