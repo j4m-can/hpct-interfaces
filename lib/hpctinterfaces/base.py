@@ -130,21 +130,17 @@ class Interface:
             self.clear(key)
 
     def __getitem__(self, key):
-        v = getattr(self, key)
-        if isinstance(v, Interface):
-            return v
-        else:
-            return self._get(key)
+        return self._get(key)
 
     def __setitem__(self, key, value):
-        v = getattr(self, key)
+        self._set(key, value)
+
+    def _get(self, key, default=None):
+        v = self._safe_getattr(key)
         if isinstance(v, Interface):
             return v
         else:
-            self._set(key, value)
-
-    def _get(self, key, default=None):
-        return self._baseiface._store.get(self.get_fqkey(key), default)
+            return self._baseiface._store.get(self.get_fqkey(key), default)
 
     def _get_keys(self, iface, fq=False, depth=0):
         """Collect keys from an interface.
@@ -191,6 +187,12 @@ class Interface:
 
     def _set(self, key, value):
         """Accessor for the interface store."""
+
+        # TODO: what if key refers to Interface?
+        # * mount over? what happens to the underlying values?
+        # * what happens if anchor is a class Interface?
+        # TODO: what if key refers to nothing in class/object?
+        # * mount? if so, then what happens with the new values?
 
         self._baseiface._store[self.get_fqkey(key)] = value
 
@@ -299,21 +301,19 @@ class Interface:
             subiface._set_base(self._baseiface)
             setattr(self, key, subiface)
 
+            # TODO: what about the values, if any, in the mounted Interface?
+            # * should it be mounted as if empty?
+
     def print_doc(self, indent=2):
         """Basic pretty print of object document."""
 
         json.dumps(self.get_doc(), indent)
 
-    def set_item(self, key, value):
-        """Update a single item by key."""
-
-        setattr(self, key, value)
-
     def update(self, d):
         """Update multiple items from a dict."""
 
         for k, v in d.items():
-            self.set_item(k, v)
+            self._set(k, v)
 
 
 class BaseInterface(Interface):
