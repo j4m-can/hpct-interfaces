@@ -29,16 +29,6 @@ from hpctinterfaces.base import Interface
 from hpctinterfaces.value import Blob, Integer, String
 
 
-def _get_grgid(group):
-    gr = grp.getgrname(group)
-    return gr.gr_gid
-
-
-def _get_pwuid(owner):
-    pw = pwd.getpwnam(owner)
-    return pw.pw_uid
-
-
 class FileDataInterface(Interface):
     """Holds the contents and metadata for a file."""
 
@@ -77,55 +67,32 @@ class FileDataInterface(Interface):
         self.gid = stat.st_gid
         self.nonce = secrets.token_urlsafe()
 
-    def save(
-        self,
-        path,
-        mode=None,
-        uid=None,
-        gid=None,
-        owner=None,
-        group=None,
-        update_mode=False,
-        update_owner=False,
-        update_uidgid=False,
-    ):
-        """Save contents to file. Optionally set mode and ownership."""
+    def save(self, path, mode=None, user=None, group=None):
+        """Save contents to file. Optionally set mode and ownership.
+
+        user (name or uid) and group (name or gid) take integers
+        (uid/gid) or strings (owner/group)."""
 
         if self.nonce == "":
             # nothing ready to save
             return
 
-        if update_uidgid:
-            _uid, _gid = self.uid, self.gid
-        elif update_owner:
-            try:
-                _uid = _get_pwuid(self.owner)
-                _gid =_get_grgid(self.group)
-            except:
-                raise Exception("cannot find owner/group")
-        else:
-            _uid, _gid = None
-
         try:
-            _uid = _uid if uid == None else uid
-            _gid = _gid if gid == None else gid
-            _uid = _uid if owner == None else _get_pwuid(owner)
-            _gid = _gid if group == None else _get_grgid(group)
+            user = user if user != None else -1
+            group = group if group != None else -1
+            uid = user if type(user) == int else pwd.getpwnam(user).pw_uid
+            gid = group if type(group) == int else grp.getgrnam(group).gr_gid
         except:
             raise Exception("cannot find owner/group")
-
-        _uid = _uid if _uid != None else -1
-        _gid = _gid if _gid != None else -1
 
         # create/update securely
         p = pathlib.Path(path)
         p.touch()
 
-        if -1 not in [_uid, _gid]:
-            os.chown(path, _uid, _gid)
+        if (uid, gid) != (-1, -1):
+            os.chown(path, uid, gid)
 
-        if update_mode or mode != None:
-            _mode = mode if mode != None or self.mode
-            p.chmod(_mode)
+        if mode != None:
+            p.chmod(mode)
 
         p.write_bytes(self.data)
