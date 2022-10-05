@@ -18,9 +18,11 @@ To use:
         iface.save(iface.path)
 """
 
+import grp
 import hashlib
 import os
 import pathlib
+import pwd
 import secrets
 
 from hpctinterfaces.base import Interface
@@ -65,16 +67,31 @@ class FileDataInterface(Interface):
         self.gid = stat.st_gid
         self.nonce = secrets.token_urlsafe()
 
-    def save(self, path, update_mode=False, update_owner=False):
+    def save(self, path, update_mode=False, update_owner=False, update_uidgid=False):
         """Save contents to file. Optionally set mode and ownership."""
 
         if self.nonce == "":
             # nothing ready to save
             return
 
+        if update_uidgid or update_owner:
+            if update_uidgid:
+                uid, gid = self.uid, self.gid
+            else:
+                try:
+                    pw = pwd.getpwnam(self.owner)
+                    gr = grp.getgrnam(self.group)
+                    uid, gid = pw.pw_uid, gr.gr_gid
+                except:
+                    raise Exception("cannot find owner/group")
+        else:
+            uid, gid = None
+
+        # create/update securely
         p = pathlib.Path(path)
-        p.write_bytes(self.data)
+        p.touch()
+        if None not in [uid, gid]:
+            os.chown(path, uid, gid)
         if update_mode:
             p.chmod(self.mode)
-        if update_owner:
-            os.chown(path, self.uid, self.gid)
+        p.write_bytes(self.data)
